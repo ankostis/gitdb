@@ -12,7 +12,10 @@ git:
   depth: 1000
 install:
   - pip install coveralls
-script: 
+  - pip install -I git+https://github.com/ankostis/smmap.git@leaks_memview
+  - pip install -r requirements.txt
+  - pip install -e .
+script:
   - ulimit -n 48
   - ulimit -n
   - nosetests -v --with-coverage
