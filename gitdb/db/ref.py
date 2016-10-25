@@ -2,9 +2,12 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+from _functools import partial
+
 from gitdb.db.base import (
     CompoundDB,
 )
+
 
 __all__ = ('ReferenceDB', )
 
@@ -15,11 +18,12 @@ class ReferenceDB(CompoundDB):
 
     # Configuration
     # Specifies the object database to use for the paths found in the alternates
-    # file. If None, it defaults to the GitDB
+    # file. If None, it defaults to the GitDB with `mman` arg partially bound.
     ObjectDBCls = None
 
-    def __init__(self, ref_file):
+    def __init__(self, ref_file, mman):
         super(ReferenceDB, self).__init__()
+        self._mman = mman
         self._ref_file = ref_file
 
     def _set_cache_(self, attr):
@@ -35,7 +39,7 @@ class ReferenceDB(CompoundDB):
         if dbcls is None:
             # late import
             from gitdb.db.git import GitDB
-            dbcls = GitDB
+            dbcls = partial(GitDB, mman=self._mman)
         # END get db type
 
         # try to get as many as possible, don't fail if some are unavailable

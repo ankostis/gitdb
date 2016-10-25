@@ -148,7 +148,11 @@ def file_contents_ro(fd, stream=False, allow_mmap=True):
         is provided.
     :param allow_mmap: if True, its allowed to map the contents into memory, which
         allows large files to be handled and accessed efficiently. The file-descriptor
-        will change its position if this is False"""
+        will change its position if this is False.
+
+    .. Tip::
+        Remember to close the result, or use it in a ``with ...:`` block.
+    """
     try:
         if allow_mmap:
             # supports stream and random access
@@ -189,10 +193,15 @@ def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
     # END assure file is closed
 
 
-def sliding_ro_buffer(filepath, flags=0):
+def sliding_ro_buffer(mman, filepath, flags=0):
     """
+    :param mman: an instance of :class:`StaticWindowMapManager` to use
     :return: a buffer compatible object which uses our mapped memory manager internally
-        ready to read the whole given filepath"""
+        ready to read the whole given filepath
+
+    .. Tip::
+        Use it as a context-manager inside a ``with ...:`` block.
+    """
     return SlidingWindowMapBuffer(mman.make_cursor(filepath), flags=flags)
 
 

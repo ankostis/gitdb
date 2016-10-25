@@ -48,7 +48,6 @@ from gitdb.stream import (
     FlexibleSha1Writer
 )
 from gitdb.util import (
-    mman,
     LazyMixin,
     bin_to_hex,
     byte_ord,
@@ -257,7 +256,8 @@ class PackIndexFile(LazyMixin):
     index_v2_signature = b'\xfftOc'
     index_version_default = 2
 
-    def __init__(self, indexpath):
+    def __init__(self, mman, indexpath):
+        self._mman = mman
         self._indexpath = indexpath
         self._entered = 0
         self._cursor = None
@@ -281,6 +281,7 @@ class PackIndexFile(LazyMixin):
             self._cursor = None
 
     def _make_cursor(self):
+        mman = self._mman
         cursor = mman.make_cursor(self._indexpath).use_region()
 
         # We will assume that the index will always fully fit into memory !
@@ -519,7 +520,8 @@ class PackFile(LazyMixin):
     for some reason - one clearly doesn't want to read 10GB at once in that
     case"""
 
-    __slots__ = ('_packpath',
+    __slots__ = ('_mman',
+                 '_packpath',
                  '_cursor',
                  '_size',
                  '_version',
@@ -532,7 +534,8 @@ class PackFile(LazyMixin):
     first_object_offset = 3 * 4       # header bytes
     footer_size = 20                # final sha
 
-    def __init__(self, packpath):
+    def __init__(self, mman, packpath):
+        self._mman = mman
         self._packpath = packpath
         self._entered = 0
         self._cursor = None
@@ -540,7 +543,7 @@ class PackFile(LazyMixin):
     def __enter__(self):
         if self._entered == 0:
             assert self._cursor is None, self._cursor
-            self._cursor = mman.make_cursor(self._packpath).use_region()
+            self._cursor = self._mman.make_cursor(self._packpath).use_region()
         self._entered += 1
 
         return self
@@ -690,11 +693,11 @@ class PackEntity(LazyMixin):
     IndexFileCls = PackIndexFile
     PackFileCls = PackFile
 
-    def __init__(self, pack_or_index_path):
+    def __init__(self, mman, pack_or_index_path):
         """Initialize ourselves with the path to the respective pack or index file"""
         basename, ext = os.path.splitext(pack_or_index_path)  # @UnusedVariable
-        self._index = self.IndexFileCls("%s.idx" % basename)
-        self._pack = self.PackFileCls("%s.pack" % basename)
+        self._index = self.IndexFileCls(mman, "%s.idx" % basename)
+        self._pack = self.PackFileCls(mman, "%s.pack" % basename)
         self._entered = False
 
     def __enter__(self):
@@ -1039,9 +1042,11 @@ class PackEntity(LazyMixin):
         return pack_sha, index_sha
 
     @classmethod
-    def create(cls, object_iter, base_dir, object_count=None, zlib_compression=zlib.Z_BEST_SPEED):
+    def create(cls, mman, object_iter, base_dir, object_count=None, zlib_compression=zlib.Z_BEST_SPEED):
         """Create a new on-disk entity comprised of a properly named pack file and a properly named
         and corresponding index file. The pack contains all OStream objects contained in object iter.
+
+        :param mman: use :func:`smmap.managed_mmaps()` as a context-manager
         :param base_dir: directory which is to contain the files
         :return: PackEntity instance initialized with the new pack
 
@@ -1062,6 +1067,6 @@ class PackEntity(LazyMixin):
         os.rename(pack_path, new_pack_path)
         os.rename(index_path, new_index_path)
 
-        return cls(new_pack_path)
+        return cls(mman, new_pack_path)
 
     #} END interface

@@ -3,44 +3,54 @@ Changelog
 #########
 
 2.1.0
+======
+
+* **BREAKING API:** from *smmap-v2.1.0*: retrofit ``git.util.mman`` as context-manager,
+  to release memory-mapped regions held.
+
+  This *mmap-project's mmap-manager(s)* are re-entrant, but not thread-safe context-manager(s),
+  to be used within a ``with ...:`` block, ensuring any left-overs cursors are cleaned up.
+  If not entered, :meth:`StaticWindowMapManager.make_cursor()` and/or
+  :meth:`WindowCursor.buffer()`, ``map()``, etc will scream.
+
 * **BREAKING API:** retrofit streams and (internal) packers as context-managers.
 
-  Specifically if you are using directly the packers 
-  (``git.pack.PackIndexFile``, ``git.pack.PackFile`` & ``git.pack.PackEntity``) 
-  they must always be used from within a ``with ..`` block, or else 
+  Specifically if you are using directly the packers
+  (``git.pack.PackIndexFile``, ``git.pack.PackFile`` & ``git.pack.PackEntity``)
+  they must always be used from within a ``with ..`` block, or else
   you will get *mmap-cursor* missing errors.
-    
+
   .. Tip::
 
     You can "enter" `PackIndexFile`` & ``PackFile`` multiple time, but ``PackEntity`` only once
     to detect and avoid sloppy deep-nesting.
     Since ``git.pack.PackEntity`` class just coalseces ``PackIndexFile`` & ``PackFile``,
     you may "enter" either each internal packer separately, or the entity only once.
-         
+
 * **BREAKING API:** some utilities moved between ``git.util``, ``git.const`` & ``git.utils.compat``.
-* Fix (probably) all leaks in Windows.  
+* Fix (probably) all leaks in Windows.
 
   .. Note::
-  
+
     The problem is that on Linux, any open files go unoticed, or collected by GC.
-    But on *Windows* (and specifically on PY3 where GC is not deterministic), 
+    But on *Windows* (and specifically on PY3 where GC is not deterministic),
     the underlying files cannot delete due to *access violation*.
-    
+
     That's a Good-thing|copy|, because it is dangerous to *leak*  memory-mapped handles.
-    Actually *Windows* may leak them even after process who created them have died, 
+    Actually *Windows* may leak them even after process who created them have died,
     needing a full restart(!) to clean them up (signing-out is not enough).
-      
+
 
 * Stop importing *on runtime* *smmap* submodule - deleted completely submodule from sources.
 
   .. Tip::
-  
+
       Developer now has to specify specific dependency to *smmap* in ``requirements.txt`` file, and
       remember to updated it before a final release.
 
-* Run TCs also on Appveyor.  
-  
-    
+* Run TCs also on Appveyor.
+
+
 0.6.1
 =====
 
@@ -63,7 +73,7 @@ Changelog
 
 0.5.3
 =====
-* Added support for smmap. SmartMMap allows resources to be managed and controlled. This brings the implementation closer to the way git handles memory maps, such that unused cached memory maps will automatically be freed once a resource limit is hit. The memory limit on 32 bit systems remains though as a sliding mmap implementation is not used for performance reasons. 
+* Added support for smmap. SmartMMap allows resources to be managed and controlled. This brings the implementation closer to the way git handles memory maps, such that unused cached memory maps will automatically be freed once a resource limit is hit. The memory limit on 32 bit systems remains though as a sliding mmap implementation is not used for performance reasons.
 
 
 0.5.2

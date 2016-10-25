@@ -107,6 +107,7 @@ class FileDBBase(object):
     def __init__(self, root_path):
         """Initialize this instance to look for its files at the given root path
         All subsequent operations will be relative to this path
+
         :raise InvalidDBRoot:
         **Note:** The base will not perform any accessablity checking as the base
             might not yet be accessible, but become accessible before the first

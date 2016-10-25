@@ -177,18 +177,20 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
             return False
         # END check existence
 
-    def store(self, istream):
-        """note: The sha we produce will be hex by nature"""
+    def _make_writer(self, istream):
         tmp_path = None
         writer = self.ostream()
-        if writer is None:
-            # open a tmp file to write the data to
+        if writer is None:  # open a tmp file to write the data to
             fd, tmp_path = tempfile.mkstemp(prefix='obj', dir=self._root_path)
-
             if istream.binsha is None:
                 writer = FDCompressedSha1Writer(fd)
             else:
                 writer = FDStream(fd)
+        return writer, tmp_path
+
+    def store(self, istream):
+        """note: The sha we produce will be hex by nature"""
+        writer, tmp_path = self._make_writer(istream)
             # END handle direct stream copies
         # END handle custom writer
 
