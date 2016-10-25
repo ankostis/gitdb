@@ -5,31 +5,31 @@ Usage Guide
 ###########
 This text briefly introduces you to the basic design decisions and accompanying types.
 
-******
+
 Design
-******
+=======
 The *GitDB* project models a standard git object database and implements it in pure python. This means that data, being classified by one of four types, can can be stored in the database and will in future be referred to by the generated SHA1 key, which is a 20 byte string within python.
 
 *GitDB* implements *RW* access to loose objects, as well as *RO* access to packed objects. Compound Databases allow to combine multiple object databases into one.
 
 All data is read and written using streams, which effectively prevents more than a chunk of the data being kept in memory at once mostly [#]_.
 
-*******
+
 Streams
-*******
+=========
 In order to assure the object database can handle objects of any size, a stream interface is used for data retrieval as well as to fill data into the database.
 
 Basic Stream Types
-==================
+-------------------
 There are two fundamentally different types of streams, **IStream**\ s and **OStream**\ s. IStreams are mutable and are used to provide data streams to the database to create new objects.
 
 OStreams are immutable and are used to read data from the database. The base of this type, **OInfo**, contains only type and size information of the queried object, but no stream, which is slightly faster to retrieve depending on the database.
 
 OStreams are tuples, IStreams are lists. Both, OInfo and OStream, have the same member ordering which allows quick conversion from one type to another.
 
-****************************
+
 Data Query and Data Addition
-****************************
+-------------------------------
 Databases support query and/or addition of objects using simple interfaces. They are called **ObjectDBR** for read-only access, and **ObjectDBW** for write access to create new objects.
 
 Both have two sets of methods, one of which allows interacting with single objects, the other one allowing to handle a stream of objects simultaneously and asynchronously.
@@ -58,9 +58,9 @@ To store information, you prepare an *IStream* object with the required informat
         assert len(istream.binsha) == 20
         assert ldb.has_object(istream.binsha)
 
-**********************
+
 Asynchronous Operation
-**********************
+------------------------
 For each read or write method that allows a single-object to be handled, an *_async* version exists which reads items to be processed from a channel, and writes the operation's result into an output channel that is read by the caller or by other async methods, to support chaining.
 
 Using asynchronous operations is easy, but chaining multiple operations together to form a complex one would require you to read the docs of the *async* package. At the current time, due to the *GIL*, the *GitDB* can only achieve true concurrency during zlib compression and decompression if big objects, if the respective c modules where compiled in *async*.
@@ -93,10 +93,8 @@ Use async methods with readers, which supply items to be processed. The result i
     ostreams = info_reader.read()
 
 
-
-*********
 Databases
-*********
+==========
 A database implements different interfaces, one if which will always be the *ObjectDBR* interface to support reading of object information and streams.
 
 The *Loose Object Database* as well as the *Packed Object Database* are *File Databases*, hence they operate on a directory which contains files they can read.

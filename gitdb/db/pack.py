@@ -37,13 +37,14 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
     # any effect, but it should have one
     _sort_interval = 500
 
-    def __init__(self, root_path):
+    def __init__(self, mman, root_path):
         super(PackedDB, self).__init__(root_path)
         # list of lists with three items:
         # * hits - number of times the pack was hit with a request
         # * entity - Pack entity instance
         # * sha_to_index - PackIndexFile.sha_to_index method for direct cache query
         # self._entities = []       # lazy loaded list
+        self._mman = mman
         self._hit_count = 0             # amount of hits
         self._st_mtime = 0              # last modification data of our root path
 
@@ -157,7 +158,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         for pack_file in (pack_files - our_pack_files):
             # init the hit-counter/priority with the size, a good measure for hit-
             # probability. Its implemented so that only 12 bytes will be read
-            with PackEntity(pack_file) as entity:
+            with PackEntity(self._mman, pack_file) as entity:
                 self._entities.append([entity.pack().size(), entity, entity.index().sha_to_index])
         # END for each new packfile
 

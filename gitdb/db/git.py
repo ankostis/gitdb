@@ -2,21 +2,21 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+from _functools import partial
+import os
+
 from gitdb.db.base import (
     CompoundDB,
     ObjectDBW,
     FileDBBase
 )
-
 from gitdb.db.loose import LooseObjectDB
 from gitdb.db.pack import PackedDB
 from gitdb.db.ref import ReferenceDB
-
 from gitdb.exc import InvalidDBRoot
 
-import os
 
-__all__ = ('GitDB', )
+__all__ = ('GitDB',)
 
 
 class GitDB(FileDBBase, ObjectDBW, CompoundDB):
@@ -37,15 +37,19 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
     loose_dir = ''
     alternates_dir = os.path.join('info', 'alternates')
 
-    def __init__(self, root_path):
-        """Initialize ourselves on a git objects directory"""
+    def __init__(self, mman, root_path):
+        """Initialize ourselves on a git objects directory
+
+        :param mman: use :func:`smmap.managed_mmaps()` as a context-manager
+        """
         super(GitDB, self).__init__(root_path)
+        self._mman = mman
 
     def _set_cache_(self, attr):
         if attr == '_dbs' or attr == '_loose_db':
             self._dbs = []
             loose_db = None
-            for subpath, dbcls in ((self.packs_dir, self.PackDBCls),
+            for subpath, dbcls in ((self.packs_dir, partial(self.PackDBCls, self._mman)),
                                    (self.loose_dir, self.LooseDBCls),
                                    (self.alternates_dir, self.ReferenceDBCls)):
                 path = self.db_path(subpath)

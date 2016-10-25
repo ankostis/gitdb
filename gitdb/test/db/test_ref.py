@@ -25,9 +25,9 @@ class TestReferenceDB(TestDBBase):
     def test_writing(self, path):
         alt_path = os.path.join(path, 'alternates')
         rdb = ReferenceDB(alt_path)
-        assert len(rdb.databases()) == 0
-        assert rdb.size() == 0
-        assert len(list(rdb.sha_iter())) == 0
+        self.assertEqual(len(rdb.databases()), 0)
+        self.assertEqual(rdb.size(), 0)
+        self.assertEqual(len(list(rdb.sha_iter())), 0)
 
         # try empty, non-existing
         assert not rdb.has_object(NULL_BIN_SHA)
@@ -37,7 +37,7 @@ class TestReferenceDB(TestDBBase):
         own_repo_path = os.path.join(self.gitrepopath, 'objects')       # use own repo
         self.make_alt_file(alt_path, [own_repo_path, "invalid/path"])
         rdb.update_cache()
-        assert len(rdb.databases()) == 1
+        self.assertEqual(len(rdb.databases()), 1)
 
         # we should now find a default revision of ours
         gitdb_sha = next(rdb.sha_iter())
@@ -46,9 +46,9 @@ class TestReferenceDB(TestDBBase):
         # remove valid
         self.make_alt_file(alt_path, ["just/one/invalid/path"])
         rdb.update_cache()
-        assert len(rdb.databases()) == 0
+        self.assertEqual(len(rdb.databases()), 0)
 
         # add valid
         self.make_alt_file(alt_path, [own_repo_path])
         rdb.update_cache()
-        assert len(rdb.databases()) == 1
+        self.assertEqual(len(rdb.databases()), 1)

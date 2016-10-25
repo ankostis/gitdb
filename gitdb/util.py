@@ -20,14 +20,6 @@ from smmap import (
 )
 
 
-# initialize our global memory manager instance
-# Use it to free cached (and unused) resources.
-if sys.version_info < (2, 6):
-    mman = StaticWindowMapManager()
-else:
-    mman = SlidingWindowMapManager()
-# END handle mman
-
 #{ Aliases
 
 hex_to_bin = binascii.a2b_hex
@@ -195,8 +187,9 @@ def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
     # END assure file is closed
 
 
-def sliding_ro_buffer(filepath, flags=0):
+def sliding_ro_buffer(mman, filepath, flags=0):
     """
+    :param mman: an instance of :class:`StaticWindowMapManager` to use
     :return: a buffer compatible object which uses our mapped memory manager internally
         ready to read the whole given filepath"""
     return SlidingWindowMapBuffer(mman.make_cursor(filepath), flags=flags)

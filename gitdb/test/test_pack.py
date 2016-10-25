@@ -7,6 +7,7 @@ import os
 import tempfile
 
 from nose import SkipTest
+import smmap
 
 from gitdb.base import (
     OInfo,
@@ -127,16 +128,17 @@ class TestPack(TestBase):
 
     def test_pack_index(self):
         # check version 1 and 2
-        for indexfile, version, size in (self.packindexfile_v1, self.packindexfile_v2):
-            with PackIndexFile(indexfile) as index:
-                self._assert_index_file(index, version, size)
-        # END run tests
+        with smmap.managed_mmaps() as mman:
+            for indexfile, version, size in (self.packindexfile_v1, self.packindexfile_v2):
+                with PackIndexFile(mman, indexfile) as index:
+                    self._assert_index_file(index, version, size)
 
     def test_pack(self):
         # there is this special version 3, but apparently its like 2 ...
-        for packfile, version, size in (self.packfile_v2_3_ascii, self.packfile_v2_1, self.packfile_v2_2):
-            with PackFile(packfile) as pack:
-                self._assert_pack_file(pack, version, size)
+        with smmap.managed_mmaps() as mman:
+            for packfile, version, size in (self.packfile_v2_3_ascii, self.packfile_v2_1, self.packfile_v2_2):
+                with PackFile(mman, packfile) as pack:
+                    self._assert_pack_file(pack, version, size)
         # END for each pack to test
 
     ## Unless HIDE_WINDOWS_KNOWN_ERRORS, on Windows fails with:
@@ -146,108 +148,110 @@ class TestPack(TestBase):
     #    because it is being used by another process: 'sss\\index_cc_wll5'
     @with_rw_directory
     def test_pack_entity(self, rw_dir):
-        pack_objs = []
-        for packinfo, indexinfo in ((self.packfile_v2_1, self.packindexfile_v1),
-                                    (self.packfile_v2_2, self.packindexfile_v2),
-                                    (self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
-            packfile, version, size = packinfo      # @UnusedVariable
-            indexfile, version, size = indexinfo    # @UnusedVariable
-            with PackEntity(packfile) as entity:
-                assert entity.pack().path() == packfile
-                assert entity.index().path() == indexfile
-                pack_objs.extend(entity.stream_iter())  # FIXME: How to context-manage these?
+        with smmap.managed_mmaps() as mman:
+            pack_objs = []
+            for packinfo, indexinfo in ((self.packfile_v2_1, self.packindexfile_v1),
+                                        (self.packfile_v2_2, self.packindexfile_v2),
+                                        (self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
+                packfile, version, size = packinfo      # @UnusedVariable
+                indexfile, version, size = indexinfo    # @UnusedVariable
+                with PackEntity(mman, packfile) as entity:
+                    assert entity.pack().path() == packfile
+                    assert entity.index().path() == indexfile
+                    pack_objs.extend(entity.stream_iter())  # FIXME: How to context-manage these?
 
+                    count = 0
+                    for info, stream in izip(entity.info_iter(), entity.stream_iter()):
+                        with stream:
+                            count += 1
+                            assert info.binsha == stream.binsha
+                            assert len(info.binsha) == 20
+                            assert info.type_id == stream.type_id
+                            assert info.size == stream.size
+
+                            # we return fully resolved items, which is implied by the sha centric access
+                            assert info.type_id not in delta_types
+
+                            # try all calls
+                            assert len(entity.collect_streams(info.binsha))
+                            oinfo = entity.info(info.binsha)
+                            assert isinstance(oinfo, OInfo)
+                            assert oinfo.binsha is not None
+                            with entity.stream(info.binsha) as ostream:
+                                assert isinstance(ostream, OStream)
+                                assert ostream.binsha is not None
+
+                            # verify the stream
+                            try:
+                                assert entity.is_valid_stream(info.binsha, use_crc=True)
+                            except UnsupportedOperation:
+                                pass
+                            # END ignore version issues
+                            assert entity.is_valid_stream(info.binsha, use_crc=False)
+                    # END for each info, stream tuple
+                    assert count == size
+
+            # END for each entity
+
+            # pack writing - write all packs into one
+            # index path can be None
+            pack_path1 = tempfile.mktemp('', "pack1", rw_dir)
+            pack_path2 = tempfile.mktemp('', "pack2", rw_dir)
+            index_path = tempfile.mktemp('', 'index', rw_dir)
+            iteration = 0
+
+            def rewind_streams():
+                for obj in pack_objs:
+                    obj.stream.seek(0)
+            # END utility
+            for ppath, ipath, num_obj in zip((pack_path1, pack_path2),
+                                             (index_path, None),
+                                             (len(pack_objs), None)):
+                iwrite = None
+                if ipath:
+                    ifile = open(ipath, 'wb')
+                    iwrite = ifile.write
+                # END handle ip
+
+                # make sure we rewind the streams ... we work on the same objects over and over again
+                if iteration > 0:
+                    rewind_streams()
+                # END rewind streams
+                iteration += 1
+
+                with open(ppath, 'wb') as pfile:
+                    with ExitStack() as exs:
+                        pack_objs = [exs.enter_context(s) for s in pack_objs]
+                        pack_sha, index_sha = PackEntity.write_pack(
+                            pack_objs, pfile.write, iwrite, object_count=num_obj)
+                assert os.path.getsize(ppath) > 100
+
+                # verify pack
+                with PackFile(mman, ppath) as pf:
+                    assert pf.size() == len(pack_objs)
+                    assert pf.version() == PackFile.pack_version_default
+                    assert pf.checksum() == pack_sha
+                # verify index
+                if ipath is not None:
+                    ifile.close()
+                    assert os.path.getsize(ipath) > 100
+                    with PackIndexFile(mman, ipath) as idx:
+                        assert idx.version() == PackIndexFile.index_version_default
+                        assert idx.packfile_checksum() == pack_sha
+                        assert idx.indexfile_checksum() == index_sha
+                        assert idx.size() == len(pack_objs)
+                # END verify files exist
+            # END for each packpath, indexpath pair
+
+            # verify the packs thoroughly
+            rewind_streams()
+            with PackEntity.create(mman, pack_objs, rw_dir) as entity:
                 count = 0
-                for info, stream in izip(entity.info_iter(), entity.stream_iter()):
-                    with stream:
-                        count += 1
-                        assert info.binsha == stream.binsha
-                        assert len(info.binsha) == 20
-                        assert info.type_id == stream.type_id
-                        assert info.size == stream.size
-
-                        # we return fully resolved items, which is implied by the sha centric access
-                        assert info.type_id not in delta_types
-
-                        # try all calls
-                        assert len(entity.collect_streams(info.binsha))
-                        oinfo = entity.info(info.binsha)
-                        assert isinstance(oinfo, OInfo)
-                        assert oinfo.binsha is not None
-                        with entity.stream(info.binsha) as ostream:
-                            assert isinstance(ostream, OStream)
-                            assert ostream.binsha is not None
-
-                        # verify the stream
-                        try:
-                            assert entity.is_valid_stream(info.binsha, use_crc=True)
-                        except UnsupportedOperation:
-                            pass
-                        # END ignore version issues
-                        assert entity.is_valid_stream(info.binsha, use_crc=False)
-                # END for each info, stream tuple
-                assert count == size
-
-        # END for each entity
-
-        # pack writing - write all packs into one
-        # index path can be None
-        pack_path1 = tempfile.mktemp('', "pack1", rw_dir)
-        pack_path2 = tempfile.mktemp('', "pack2", rw_dir)
-        index_path = tempfile.mktemp('', 'index', rw_dir)
-        iteration = 0
-
-        def rewind_streams():
-            for obj in pack_objs:
-                obj.stream.seek(0)
-        # END utility
-        for ppath, ipath, num_obj in zip((pack_path1, pack_path2),
-                                         (index_path, None),
-                                         (len(pack_objs), None)):
-            iwrite = None
-            if ipath:
-                ifile = open(ipath, 'wb')
-                iwrite = ifile.write
-            # END handle ip
-
-            # make sure we rewind the streams ... we work on the same objects over and over again
-            if iteration > 0:
-                rewind_streams()
-            # END rewind streams
-            iteration += 1
-
-            with open(ppath, 'wb') as pfile:
-                with ExitStack() as exs:
-                    pack_objs = [exs.enter_context(s) for s in pack_objs]
-                    pack_sha, index_sha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
-            assert os.path.getsize(ppath) > 100
-
-            # verify pack
-            with PackFile(ppath) as pf:
-                assert pf.size() == len(pack_objs)
-                assert pf.version() == PackFile.pack_version_default
-                assert pf.checksum() == pack_sha
-            # verify index
-            if ipath is not None:
-                ifile.close()
-                assert os.path.getsize(ipath) > 100
-                with PackIndexFile(ipath) as idx:
-                    assert idx.version() == PackIndexFile.index_version_default
-                    assert idx.packfile_checksum() == pack_sha
-                    assert idx.indexfile_checksum() == index_sha
-                    assert idx.size() == len(pack_objs)
-            # END verify files exist
-        # END for each packpath, indexpath pair
-
-        # verify the packs thoroughly
-        rewind_streams()
-        with PackEntity.create(pack_objs, rw_dir) as entity:
-            count = 0
-            for info in entity.info_iter():
-                count += 1
-                for use_crc in range(2):
-                    assert entity.is_valid_stream(info.binsha, use_crc)
-        assert count == len(pack_objs)
+                for info in entity.info_iter():
+                    count += 1
+                    for use_crc in range(2):
+                        assert entity.is_valid_stream(info.binsha, use_crc)
+            assert count == len(pack_objs)
 
     def test_pack_64(self):
         # TODO: hex-edit a pack helping us to verify that we can handle 64 byte offsets

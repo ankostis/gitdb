@@ -7,7 +7,6 @@
 
 from array import array
 from functools import wraps
-import gc
 import glob
 from io import BytesIO
 import logging
@@ -18,8 +17,7 @@ import sys
 import tempfile
 import unittest
 
-from gitdb.test import HIDE_WINDOWS_KNOWN_ERRORS
-from gitdb.util import rmtree, mman
+from gitdb.util import rmtree
 from gitdb.utils.compat import xrange
 
 
@@ -97,14 +95,6 @@ def with_rw_directory(func):
             # memory maps closed, once objects go out of scope. For some reason
             # though this is not the case here unless we collect explicitly.
             if not keep:
-                if HIDE_WINDOWS_KNOWN_ERRORS:
-                    ## Or else 2 Windows TCs fail with:
-                    # File "D:\Work\gitdb.git\gitdb\util.py", line 141, in onerror
-                    #     func(path)  # Will scream if still not possible to delete.
-                    # PermissionError: [WinError 32] The process cannot access the file
-                    #    because it is being used by another process: 'sss\\index_cc_wll5'
-                    mman.collect()
-                gc.collect()
                 rmtree(path)
         # END handle exception
     # END wrapper
