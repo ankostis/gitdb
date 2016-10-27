@@ -29,7 +29,7 @@ from gitdb.utils.compat import xrange
 class TestPackedDBPerformance(TestBigRepoR):
 
     def test_pack_random_access(self):
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"), mman)
 
             # sha lookup
@@ -93,7 +93,7 @@ class TestPackedDBPerformance(TestBigRepoR):
             It doesn't seem this test can find the issue unless the given pack contains highly compressed
             data files, like archives."""
         from gitdb.util import bin_to_hex
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             pdb = GitDB(os.path.join(self.gitrepopath, 'objects'), mman)
             mdb = MemoryDB()
             for c, sha in enumerate(pdb.sha_iter()):
@@ -114,7 +114,7 @@ class TestPackedDBPerformance(TestBigRepoR):
             # end for each sha to copy
 
     def test_correctness(self):
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"), mman)
             # disabled for now as it used to work perfectly, checking big repositories takes a long time
             print("Endurance run: verify streaming of objects (crc and sha)", file=sys.stderr)

@@ -19,7 +19,7 @@ from gitdb.util import bin_to_hex
 class TestGitDB(TestDBBase):
 
     def test_reading(self):
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             gdb = GitDB(os.path.join(self.gitrepopath, 'objects'), mman)
 
             # we have packs and loose objects, alternates doesn't necessarily exist
@@ -52,7 +52,7 @@ class TestGitDB(TestDBBase):
 
     @with_rw_directory
     def test_writing(self, path):
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             gdb = GitDB(path, mman)
 
             # its possible to write objects

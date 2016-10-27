@@ -40,7 +40,7 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
     def __init__(self, root_path, mman):
         """Initialize ourselves on a git objects directory
 
-        :param mman: use :func:`smmap.managed_mmaps()` as a context-manager
+        :param mman: use :func:`smmap.memory_managed()` as a context-manager
         """
         super(GitDB, self).__init__(root_path)
         self._mman = mman

@@ -1046,7 +1046,7 @@ class PackEntity(LazyMixin):
         """Create a new on-disk entity comprised of a properly named pack file and a properly named
         and corresponding index file. The pack contains all OStream objects contained in object iter.
 
-        :param mman: use :func:`smmap.managed_mmaps()` as a context-manager
+        :param mman: use :func:`smmap.memory_managed()` as a context-manager
         :param base_dir: directory which is to contain the files
         :return: PackEntity instance initialized with the new pack
 

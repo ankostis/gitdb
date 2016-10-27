@@ -26,7 +26,7 @@ class TestReferenceDB(TestDBBase):
     @with_rw_directory
     def test_writing(self, path):
         alt_path = os.path.join(path, 'alternates')
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             rdb = ReferenceDB(alt_path, mman)
             self.assertEqual(len(rdb.databases()), 0)
             self.assertEqual(rdb.size(), 0)

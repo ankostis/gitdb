@@ -128,14 +128,14 @@ class TestPack(TestBase):
 
     def test_pack_index(self):
         # check version 1 and 2
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             for indexfile, version, size in (self.packindexfile_v1, self.packindexfile_v2):
                 with PackIndexFile(mman, indexfile) as index:
                     self._assert_index_file(index, version, size)
 
     def test_pack(self):
         # there is this special version 3, but apparently its like 2 ...
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             for packfile, version, size in (self.packfile_v2_3_ascii, self.packfile_v2_1, self.packfile_v2_2):
                 with PackFile(mman, packfile) as pack:
                     self._assert_pack_file(pack, version, size)
@@ -143,7 +143,7 @@ class TestPack(TestBase):
 
     @with_rw_directory
     def test_pack_entity(self, rw_dir):
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             pack_objs = []
             for packinfo, indexinfo in ((self.packfile_v2_1, self.packindexfile_v1),
                                         (self.packfile_v2_2, self.packindexfile_v2),

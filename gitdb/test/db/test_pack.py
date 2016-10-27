@@ -27,7 +27,7 @@ class TestPackDB(TestDBBase):
     @with_rw_directory
     @with_packs_rw
     def test_writing(self, path):
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             pdb = PackedDB(path, mman)
 
             # on demand, we init our pack cache

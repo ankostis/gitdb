@@ -39,7 +39,7 @@ class TestPackStreamingPerformance(TestBigRepoR):
         # see how fast we can write a pack from object streams.
         # This will not be fast, as we take time for decompressing the streams as well
         ostream = CountedNullStream()
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"), mman)
 
             ni = 1000
@@ -69,7 +69,7 @@ class TestPackStreamingPerformance(TestBigRepoR):
                   (total_kb, elapsed, total_kb / elapsed), sys.stderr)
 
     def test_stream_reading(self):
-        with smmap.managed_mmaps() as mman:
+        with smmap.memory_managed() as mman:
             pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"), mman)
 
             # streaming only, meant for --with-profile runs
