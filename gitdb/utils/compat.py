@@ -13,8 +13,10 @@ except ImportError:
 
 try:
     # Python 2
-    buffer = buffer
-    memoryview = buffer
+    buffer = buffer         # @UndefinedVariable
+    #memoryview = buffer     # @ReservedAssignment
+
+
     # Assume no memory view ...
     def to_bytes(i):
         return i
@@ -29,10 +31,11 @@ except NameError:
             # return memoryview(obj)[offset:offset+size]
             return obj[offset:offset + size]
     # end buffer reimplementation
-    # smmap can return memory view objects, which can't be compared as buffers/bytes can ... 
+    # smmap can return memory view objects, which can't be compared as buffers/bytes can ...
     def to_bytes(i):
         if isinstance(i, memoryview):
             return i.tobytes()
+            i.release()
         return i
 
     memoryview = memoryview
