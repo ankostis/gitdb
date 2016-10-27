@@ -10,15 +10,19 @@ python:
 git:
   # a higher depth is needed for one of the tests - lets fet
   depth: 1000
+
 install:
   - pip install coveralls
-  - pip install -I git+https://github.com/ankostis/smmap.git@leaks_memview
+  - python -m pip install pip setuptools -U
+
   - pip install -r requirements.txt
-  - pip install -e .
+
 script:
   - ulimit -n 48
   - ulimit -n
   - nosetests -v --with-coverage
+  - pip install -e .
+
 after_success:
   - coveralls
 
